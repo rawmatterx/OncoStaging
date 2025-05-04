@@ -2,14 +2,25 @@ import streamlit as st
 import fitz  # PyMuPDF
 import docx
 import re
+import csv
+import os
 from tnm_staging import determine_tnm_stage
 
 st.set_page_config(page_title="Cancer Staging Chatbot", layout="centered")
 st.title("🤖 Cancer Staging Chatbot")
 st.markdown("Upload your PET/CT report to get a staging summary and ask questions.")
 
-# ------------------- File Upload ------------------- #
 uploaded_file = st.file_uploader("📤 Upload PET/CT Report (.pdf or .docx)", type=["pdf", "docx"])
+
+CSV_FILE = "feedback_log.csv"
+
+def log_feedback_to_csv(helpful, anxiety):
+    file_exists = os.path.isfile(CSV_FILE)
+    with open(CSV_FILE, mode='a', newline='') as file:
+        writer = csv.writer(file)
+        if not file_exists:
+            writer.writerow(["Helpful Feedback", "Anxiety Feedback"])
+        writer.writerow([helpful, anxiety])
 
 def extract_text(file):
     if file.name.endswith(".pdf"):
@@ -20,7 +31,6 @@ def extract_text(file):
         return "\n".join([para.text for para in doc.paragraphs])
     return ""
 
-# ------------------- Feature Extraction ------------------- #
 def extract_features(text):
     text = text.lower()
     features = {
@@ -63,7 +73,6 @@ def extract_features(text):
 
     return features
 
-# ------------------- Explanation Generator ------------------- #
 def generate_summary(stage, cancer_type):
     msg = f"Based on the report, this appears to be **{stage} {cancer_type.capitalize()} Cancer**.\n\n"
     if "IV" in stage:
@@ -77,7 +86,6 @@ def generate_summary(stage, cancer_type):
     msg += "\n⚠️ Please consult your oncologist before making any treatment decisions."
     return msg
 
-# ------------------- Treatment Suggestion ------------------- #
 def get_treatment_advice(cancer_type, stage):
     cancer_type = cancer_type.lower()
     stage = stage.upper()
@@ -181,6 +189,14 @@ Treatment:
 {treatment}
 """
                     st.download_button("📥 Download .txt Summary", summary_text, file_name="cancer_summary.txt")
+
+            # ------------------- Feedback ------------------- #
+            st.subheader("💬 Feedback")
+            helpful = st.radio("Was this summary helpful?", ["👍 Yes", "👎 No"], key="helpful")
+            anxiety = st.radio("Did your anxiety increase or decrease after reading the summary?", ["📈 Increased", "📉 Decreased"], key="anxiety")
+            if st.button("Submit Feedback"):
+                log_feedback_to_csv(helpful, anxiety)
+                st.success("🙏 Thank you for your feedback!")
 
         else:
             st.error("❌ Cancer type could not be identified from the report.")
