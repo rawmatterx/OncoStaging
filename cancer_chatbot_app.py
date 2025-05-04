@@ -205,8 +205,8 @@ with col2:
         st.download_button("📄 Download as PDF", f, file_name=pdf_filename, mime="application/pdf")
 
 
-        else:
-            st.error("❌ Cancer type could not be identified from the report.")
+else:
+    st.error("❌ Cancer type could not be identified from the report.")
 
 
 # ------------------- Feedback Buttons ------------------- #
