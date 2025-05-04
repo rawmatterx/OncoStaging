@@ -33,40 +33,40 @@ def extract_text(file):
         return "\n".join([para.text for para in doc.paragraphs])
     return ""
 
+def detect_cancer_type(text):
+    cancer_keywords = {
+        "gallbladder": ["gallbladder"],
+        "esophageal": ["esophagus", "oesophagus"],
+        "breast": ["breast"],
+        "lung": ["lung", "pulmonary"],
+        "colorectal": ["colon", "rectum"],
+        "head and neck": ["oral cavity", "oropharynx", "nasopharynx", "larynx"]
+    }
+    counts = {}
+    for ctype, keywords in cancer_keywords.items():
+        counts[ctype] = sum(1 for word in keywords if word in text)
+    detected = max(counts.items(), key=lambda x: x[1])
+    return detected[0] if detected[1] > 0 else ""
+
 def extract_features(text):
     text = text.lower()
     features = {
-        "cancer_type": "",
+        "cancer_type": detect_cancer_type(text),
         "tumor_size_cm": 0,
         "lymph_nodes_involved": 0,
         "distant_metastasis": False,
         "liver_invasion": False,
         "tumor_depth": ""
     }
-    if "gallbladder" in text:
-        features["cancer_type"] = "gallbladder"
-    elif "esophagus" in text:
-        features["cancer_type"] = "esophageal"
-    elif "breast" in text:
-        features["cancer_type"] = "breast"
-    elif "lung" in text:
-        features["cancer_type"] = "lung"
-    elif "colon" in text or "rectum" in text:
-        features["cancer_type"] = "colorectal"
-    elif "oral cavity" in text or "oropharynx" in text:
-        features["cancer_type"] = "head and neck"
-
     size_match = re.search(r'(\d+(\.\d+)?)\s*(cm|mm)', text)
     if size_match:
         size_val = float(size_match.group(1))
         if "mm" in size_match.group(3):
             size_val /= 10
         features["tumor_size_cm"] = size_val
-
     features["lymph_nodes_involved"] = len(re.findall(r"lymph\s+node", text))
     features["distant_metastasis"] = "metastasis" in text or "metastases" in text
     features["liver_invasion"] = "liver invasion" in text or "involving segments" in text
-
     for keyword in ["mucosa", "submucosa", "muscularis", "subserosa", "serosa", "adventitia"]:
         if keyword in text:
             features["tumor_depth"] = keyword
@@ -91,16 +91,16 @@ def get_treatment_advice(cancer_type, stage):
     stage = stage.upper()
     treatment_dict = {
         "gallbladder": {
-            "I": "Surgical resection...",
-            "II": "Extended cholecystectomy...",
-            "III": "Surgical resection ± chemoradiotherapy...",
-            "IV": "Systemic chemotherapy..."
+            "I": "Surgical resection (simple or extended). [🔗 NCCN Guidelines](https://www.nccn.org/professionals/physician_gls/pdf/hepatobiliary.pdf)",
+            "II": "Extended cholecystectomy + lymphadenectomy. [🔗 NCCN Guidelines](https://www.nccn.org/professionals/physician_gls/pdf/hepatobiliary.pdf)",
+            "III": "Surgery ± chemoradiotherapy. [🔗 NCCN Guidelines](https://www.nccn.org/professionals/physician_gls/pdf/hepatobiliary.pdf)",
+            "IV": "Systemic chemotherapy (Gem/Cis). [🔗 NCCN Guidelines](https://www.nccn.org/professionals/physician_gls/pdf/hepatobiliary.pdf)"
         },
         "esophageal": {
-            "I": "Endoscopic or surgical...",
-            "II": "Neoadjuvant chemoradiotherapy...",
-            "III": "Definitive chemoradiation...",
-            "IV": "Systemic therapy..."
+            "I": "Endoscopic resection or surgery. [🔗 NCCN](https://www.nccn.org/professionals/physician_gls/pdf/esophageal.pdf)",
+            "II": "Neoadjuvant chemoradiotherapy → surgery. [🔗 NCCN](https://www.nccn.org/professionals/physician_gls/pdf/esophageal.pdf)",
+            "III": "Chemoradiotherapy ± surgery. [🔗 NCCN](https://www.nccn.org/professionals/physician_gls/pdf/esophageal.pdf)",
+            "IV": "Systemic therapy ± stent/palliative RT. [🔗 NCCN](https://www.nccn.org/professionals/physician_gls/pdf/esophageal.pdf)"
         }
     }
     if stage.startswith("I"):
@@ -117,21 +117,15 @@ def get_treatment_advice(cancer_type, stage):
 
 def create_pdf(summary_text, filename="cancer_summary.pdf"):
     pdf = FPDF()
-    pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
     pdf.set_font("Arial", size=10)
-    def sanitize(line):
-        return ''.join(c for c in line if ord(c) < 128 and c != '\x0c')
-    try:
-        for line in summary_text.strip().split("\n"):
-            line = sanitize(line).strip()
-            if line:
-                pdf.multi_cell(0, 8, line)
-        pdf.output(filename)
-        return filename
-    except Exception as e:
-        st.error(f"PDF generation failed: {str(e)}")
-        return None
+    for line in summary_text.strip().split("\n"):
+        clean_line = ''.join(c for c in line if 32 <= ord(c) <= 126)
+        if clean_line.strip():
+            pdf.multi_cell(0, 8, clean_line, align='L')
+    pdf.output(filename)
+    return filename
 
 if uploaded_file:
     with st.spinner("🔍 Analyzing report..."):
@@ -173,7 +167,7 @@ Disclaimer: This summary is AI-generated and not a substitute for clinical judgm
                 if question == "🧾 What is my cancer stage?":
                     st.markdown(f"Your cancer is staged as **{staging['Stage']}**.")
                 elif question == "💊 What treatment is usually given?":
-                    st.markdown(treatment)
+                    st.markdown(treatment, unsafe_allow_html=True)
                 elif question == "🧠 What does this mean in simple terms?":
                     st.markdown(explanation)
                 elif question == "📥 Download full summary":
@@ -192,6 +186,5 @@ Disclaimer: This summary is AI-generated and not a substitute for clinical judgm
             if st.button("Submit Feedback"):
                 log_feedback_to_csv(helpful, anxiety)
                 st.success("🙏 Thank you for your feedback!")
-
         else:
             st.error("❌ Cancer type could not be identified from the report.")
