@@ -3,6 +3,7 @@ import fitz  # PyMuPDF
 import docx
 import re
 import os
+import unicodedata
 from tnm_staging import determine_tnm_stage
 from fpdf import FPDF  # using fpdf2
 import smtplib
@@ -92,14 +93,20 @@ def generate_summary(stage, cancer_type):
     msg += "\n\nThis is an AI-generated summary and may not reflect the complete clinical context."
     return msg
 
-def remove_emojis(text):
-    return re.sub(r'[^\x00-\x7F]+', '', text)
+def sanitize_text(text):
+    return ''.join(c for c in text if unicodedata.category(c)[0] != 'C')
 
 def create_pdf_summary(summary_text, filename="cancer_summary.pdf"):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    clean_text = remove_emojis(summary_text)
+    try:
+        font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+        pdf.add_font("DejaVu", "", font_path, uni=True)
+        pdf.set_font("DejaVu", size=12)
+    except RuntimeError:
+        pdf.set_font("Arial", size=12)
+
+    clean_text = sanitize_text(summary_text)
     for line in clean_text.strip().split("\n"):
         pdf.multi_cell(0, 10, line)
     pdf.output(filename)
