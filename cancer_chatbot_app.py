@@ -2,6 +2,21 @@ import streamlit as st
 import fitz  # PyMuPDF
 import docx
 import re
+import os
+
+DOWNLOAD_COUNTER_FILE = "download_count.txt"
+
+def get_download_count():
+    if os.path.exists(DOWNLOAD_COUNTER_FILE):
+        with open(DOWNLOAD_COUNTER_FILE, "r") as f:
+            return int(f.read().strip())
+    return 0
+
+def increment_download_count():
+    count = get_download_count() + 1
+    with open(DOWNLOAD_COUNTER_FILE, "w") as f:
+        f.write(str(count))
+
 from tnm_staging import determine_tnm_stage
 
 st.set_page_config(page_title="Cancer Staging Chatbot", layout="centered")
@@ -180,7 +195,23 @@ Explanation:
 Treatment:
 {treatment}
 """
-                    st.download_button("📥 Download .txt Summary", summary_text, file_name="cancer_summary.txt")
+                   st.download_button("📥 Download .txt Summary", summary_text, file_name="cancer_summary.txt")
+increment_download_count()
+st.markdown(f"🧾 **Downloads so far**: {get_download_count()}")
+
 
         else:
             st.error("❌ Cancer type could not be identified from the report.")
+
+
+# ------------------- Feedback Buttons ------------------- #
+st.subheader("💬 Was this summary helpful?")
+
+col1, col2 = st.columns(2)
+with col1:
+    if st.button("👍 Yes, it helped"):
+        st.success("✅ Thanks for your feedback!")
+with col2:
+    if st.button("👎 Not really"):
+        st.info("Thanks! We'll keep improving the AI chatbot.")
+
