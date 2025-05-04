@@ -4,6 +4,7 @@ import docx
 import re
 import os
 import unicodedata
+import csv
 from fpdf import FPDF
 from tnm_staging import determine_tnm_stage
 
@@ -12,6 +13,16 @@ st.title("🤖 Cancer Staging Chatbot")
 st.markdown("Upload your PET/CT report to get a staging summary and ask questions.")
 
 uploaded_file = st.file_uploader("📤 Upload PET/CT Report (.pdf or .docx)", type=["pdf", "docx"])
+
+CSV_FILE = "feedback_log.csv"
+
+def log_feedback_to_csv(helpful, anxiety):
+    file_exists = os.path.isfile(CSV_FILE)
+    with open(CSV_FILE, mode='a', newline='') as file:
+        writer = csv.writer(file)
+        if not file_exists:
+            writer.writerow(["Helpful Feedback", "Anxiety Feedback"])
+        writer.writerow([helpful, anxiety])
 
 def extract_text(file):
     if file.name.endswith(".pdf"):
@@ -115,10 +126,14 @@ def create_pdf(summary_text, filename="cancer_summary.pdf"):
         pdf.set_font("Arial", size=12)
     def sanitize(line):
         return ''.join(c for c in line if ord(c) < 128)
-    for line in summary_text.strip().split("\n"):
-        pdf.multi_cell(0, 10, sanitize(line))
-    pdf.output(filename)
-    return filename
+    try:
+        for line in summary_text.strip().split("\n"):
+            pdf.multi_cell(0, 10, sanitize(line))
+        pdf.output(filename)
+        return filename
+    except Exception as e:
+        st.error(f"PDF generation failed: {str(e)}")
+        return None
 
 if uploaded_file:
     with st.spinner("🔍 Analyzing report..."):
@@ -169,11 +184,15 @@ Disclaimer: This summary is AI-generated and not a substitute for clinical judgm
                         st.download_button("📄 Download TXT", summary_text, file_name="cancer_summary.txt")
                     with col2:
                         pdf_path = create_pdf(summary_text)
-                        with open(pdf_path, "rb") as f:
-                            st.download_button("📄 Download PDF", f, file_name="cancer_summary.pdf")
+                        if pdf_path:
+                            with open(pdf_path, "rb") as f:
+                                st.download_button("📄 Download PDF", f, file_name="cancer_summary.pdf")
 
                     st.subheader("💬 Feedback")
-                    st.radio("Was this summary helpful?", ["👍 Yes", "👎 No"], key="helpful")
-                    st.radio("Did your anxiety increase or decrease after reading the summary?", ["📈 Increased", "📉 Decreased"], key="anxiety")
+                    helpful = st.radio("Was this summary helpful?", ["👍 Yes", "👎 No"], key="helpful")
+                    anxiety = st.radio("Did your anxiety increase or decrease after reading the summary?", ["📈 Increased", "📉 Decreased"], key="anxiety")
+                    if st.button("Submit Feedback"):
+                        log_feedback_to_csv(helpful, anxiety)
+                        st.success("🙏 Thank you for your feedback!")
         else:
             st.error("❌ Cancer type could not be identified from the report.")
