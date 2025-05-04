@@ -195,9 +195,14 @@ Explanation:
 Treatment:
 {treatment}
 """
-                   st.download_button("📥 Download .txt Summary", summary_text, file_name="cancer_summary.txt")
-increment_download_count()
-st.markdown(f"🧾 **Downloads so far**: {get_download_count()}")
+# Download options
+col1, col2 = st.columns(2)
+with col1:
+    st.download_button("📥 Download as TXT", summary_text, file_name="cancer_summary.txt")
+
+with col2:
+    with open(pdf_filename, "rb") as f:
+        st.download_button("📄 Download as PDF", f, file_name=pdf_filename, mime="application/pdf")
 
 
         else:
