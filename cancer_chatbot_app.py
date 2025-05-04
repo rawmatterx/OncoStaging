@@ -128,8 +128,11 @@ def send_email_with_attachment(recipient, subject, body_text, file_path):
 if uploaded_file:
     text = extract_text(uploaded_file)
     features = extract_features(text)
+    st.write("🧪 Extracted features:", features)
     cancer_type = features.get("cancer_type", "unknown")
     staging = determine_tnm_stage(cancer_type, features)
+    st.write("🧪 TNM staging result:", staging)
+
     explanation = generate_summary(staging['Stage'], cancer_type)
 
     summary_text = f"""Cancer Type: {cancer_type.capitalize()}
