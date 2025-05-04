@@ -2,6 +2,8 @@ import streamlit as st
 import fitz  # PyMuPDF
 import docx
 import re
+import os
+import unicodedata
 from fpdf import FPDF
 from tnm_staging import determine_tnm_stage
 
@@ -88,8 +90,7 @@ def get_treatment_advice(cancer_type, stage):
             "II": "Neoadjuvant chemoradiotherapy...",
             "III": "Definitive chemoradiation...",
             "IV": "Systemic therapy..."
-        },
-        # Additional cancer types truncated for brevity
+        }
     }
     if stage.startswith("I"):
         stage_group = "I"
@@ -106,9 +107,16 @@ def get_treatment_advice(cancer_type, stage):
 def create_pdf(summary_text, filename="cancer_summary.pdf"):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", size=12)
+    try:
+        font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+        pdf.add_font("DejaVu", "", font_path, uni=True)
+        pdf.set_font("DejaVu", size=12)
+    except RuntimeError:
+        pdf.set_font("Arial", size=12)
+    def sanitize(line):
+        return ''.join(c for c in line if ord(c) < 128)
     for line in summary_text.strip().split("\n"):
-        pdf.multi_cell(0, 10, line)
+        pdf.multi_cell(0, 10, sanitize(line))
     pdf.output(filename)
     return filename
 
@@ -164,6 +172,8 @@ Disclaimer: This summary is AI-generated and not a substitute for clinical judgm
                         with open(pdf_path, "rb") as f:
                             st.download_button("📄 Download PDF", f, file_name="cancer_summary.pdf")
 
-                    st.radio("Was this summary helpful?", ["👍 Yes", "👎 No"])
+                    st.subheader("💬 Feedback")
+                    st.radio("Was this summary helpful?", ["👍 Yes", "👎 No"], key="helpful")
+                    st.radio("Did your anxiety increase or decrease after reading the summary?", ["📈 Increased", "📉 Decreased"], key="anxiety")
         else:
             st.error("❌ Cancer type could not be identified from the report.")
