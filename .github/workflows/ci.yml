@@ -2,39 +2,42 @@ name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   test-and-lint:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements_updated.txt flake8
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements_updated.txt flake8 bandit safety
 
-    - name: Lint with flake8
-      run: |
-        # exit-zero so initial lint issues don’t fail build; tighten later
-        flake8 .
+      - name: Lint with flake8
+        run: flake8 .
 
-    - name: Run tests
-      run: |
-        pytest --cov=.
+      - name: Run tests
+        run: pytest --cov=.
 
-    - name: Upload coverage report
-      uses: actions/upload-artifact@v3
-      with:
-        name: coverage-html
-        path: htmlcov
+      - name: Security scan (Bandit)
+        run: bandit -r . -ll
+
+      - name: Vulnerability scan (Safety)
+        run: safety check --full-report
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-html
+          path: htmlcov
