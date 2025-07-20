@@ -2,3 +2,6 @@ streamlit
 fpdf2
 python-docx
 PyMuPDF
+transformers>=4.50.0
+torch
+accelerate
