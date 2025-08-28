@@ -1,0 +1,2 @@
+2025-08-28 16:21:44,462 - __main__ - ERROR - OCR failed: tesseract is not installed or it's not in your PATH. See README file for more information.
+2025-08-28 16:21:44,462 - __main__ - ERROR - Image processing failed: OCR processing failed: tesseract is not installed or it's not in your PATH. See README file for more information.
