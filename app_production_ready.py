@@ -232,6 +232,48 @@ class SimplifiedOCRProcessor:
             except:
                 pass
     
+    def process_docx(self, docx_file) -> OCRResult:
+        """Process DOCX file with text extraction."""
+        start_time = time.time()
+        
+        try:
+            import docx
+            from io import BytesIO
+            
+            # Read the file content
+            file_content = docx_file.read()
+            doc = docx.Document(BytesIO(file_content))
+            
+            # Extract text from paragraphs
+            text_parts = []
+            for para in doc.paragraphs:
+                if para.text.strip():
+                    text_parts.append(para.text)
+            
+            # Extract text from tables
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        if cell.text.strip():
+                            text_parts.append(cell.text)
+            
+            text = '\n'.join(text_parts)
+            
+            processing_time = time.time() - start_time
+            
+            return OCRResult(
+                text=text,
+                confidence=0.9,  # High confidence for direct text extraction
+                method="docx_extraction",
+                processing_time=processing_time,
+                page_count=len(doc.paragraphs) // 30 + 1,  # Estimate pages
+                file_info={"name": docx_file.name, "size": docx_file.size, "type": docx_file.type}
+            )
+            
+        except Exception as e:
+            logger.error(f"DOCX processing failed: {e}")
+            raise DocumentProcessingError(f"DOCX processing failed: {str(e)}")
+    
     def process_image(self, uploaded_file) -> OCRResult:
         """Process image file with OCR."""
         start_time = time.time()
@@ -584,8 +626,8 @@ class ProductionOncoStagingApp:
         # File upload
         uploaded_file = st.file_uploader(
             "Upload your PET scan report",
-            type=['pdf', 'png', 'jpg', 'jpeg', 'tiff', 'bmp'],
-            help="Supports PDF documents and image files"
+            type=['pdf', 'docx', 'png', 'jpg', 'jpeg', 'tiff', 'bmp'],
+            help="Supports PDF, DOCX documents, and image files"
         )
         
         if uploaded_file is not None:
@@ -606,6 +648,8 @@ class ProductionOncoStagingApp:
                         
                         if file_ext == 'pdf':
                             ocr_result = self.ocr_processor.process_pdf(uploaded_file)
+                        elif file_ext == 'docx':
+                            ocr_result = self.ocr_processor.process_docx(uploaded_file)
                         else:
                             ocr_result = self.ocr_processor.process_image(uploaded_file)
                         
